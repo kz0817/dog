@@ -40,6 +40,7 @@ class process_tree(object):
 
     def __init__(self):
         self.proc_map = {}
+        self.root_proc_list = []
         for proc in self.__list_processes():
             self.proc_map[proc.pid] = proc
 
@@ -53,12 +54,26 @@ class process_tree(object):
 
     def __associate_parent_with_children(self):
         for pid, proc in self.proc_map.items():
-            child = proc
             parent = self.proc_map.get(proc.ppid)
-            child.parent = parent
-            if parent is not None:
-                parent.children.append(child)
+            proc.parent = parent
+            if parent is None:
+                self.root_proc_list.append(proc)
+            else:
+                parent.children.append(proc)
 
+    def __create_space_header(self, depth):
+        return ''.join([' ' for i in range(depth*2)])
+
+    def __create_one_proc_line(self, proc, depth):
+        s = self.__create_space_header(depth)
+        s += f'{proc.name}'
+        print(s)
+        for child in proc.children:
+            self.__create_one_proc_line(child, depth+1)
+
+    def show_tree(self):
+        for root_proc in self.root_proc_list:
+            self.__create_one_proc_line(root_proc, 0)
 
     def show_list(self):
         for proc in self.proc_map.values():
@@ -67,11 +82,14 @@ class process_tree(object):
 
 def run(args):
     proc_tree = process_tree()
-    proc_tree.show_list()
+    if args.list_processes:
+        proc_tree.show_list()
+    proc_tree.show_tree()
 
 
 def main():
     parser = argparse.ArgumentParser(description='A tool to list processes.')
+    parser.add_argument('-l', '--list-processes', action='store_true')
     args = parser.parse_args()
     run(args)
 
