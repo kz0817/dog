@@ -3,7 +3,13 @@ import argparse
 import re
 import os
 
-class process(object):
+class Formatter(object):
+
+    def get_pid_width(self):
+        return 6
+
+
+class Process(object):
 
     def __init__(self, pid):
         stat_arr = self.__read_stat(pid)
@@ -35,8 +41,12 @@ class process(object):
         s += f'name: {self.name}, '
         return s
 
+    def get_info_line(self, formatter):
+        s = f'{self.pid}'.rjust(formatter.get_pid_width())
+        return s
 
-class process_tree(object):
+
+class ProcessTree(object):
 
     def __init__(self):
         self.proc_map = {}
@@ -50,7 +60,7 @@ class process_tree(object):
         re_proc_name = re.compile(r'^\d+$')
         entries = os.listdir('/proc')
         for dirname in filter(lambda x: re_proc_name.match(x), entries):
-            yield process(pid=dirname)
+            yield Process(pid=dirname)
 
     def __associate_parent_with_children(self):
         for pid, proc in self.proc_map.items():
@@ -65,7 +75,9 @@ class process_tree(object):
         return ''.join([' ' for i in range(depth*2)])
 
     def __create_one_proc_line(self, proc, depth):
-        s = self.__create_space_header(depth)
+        formatter = Formatter()
+        s = proc.get_info_line(formatter) + ' '
+        s += self.__create_space_header(depth)
         s += f'{proc.name}'
         print(s)
         for child in proc.children:
@@ -81,7 +93,7 @@ class process_tree(object):
 
 
 def run(args):
-    proc_tree = process_tree()
+    proc_tree = ProcessTree()
     if args.list_processes:
         proc_tree.show_list()
     proc_tree.show_tree()
