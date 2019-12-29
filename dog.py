@@ -15,17 +15,52 @@ class Formatter(object):
         return ' '
 
     def get_header(self):
-        s = 'PID'.ljust(self.get_pid_width())
-        s += self.get_separator()
-        s += 'S'.ljust(self.get_status_width())
-        s += self.get_separator()
-        s += 'Command'
         return s
+
+class MemoryDisplay(object):
+    unit_map = {
+        'B': 1,
+        'KiB': 1024.0,
+        'MiB': 1024.0 * 1024,
+        'GiB': 1024.0 * 1024 * 1024,
+        'TiB': 1024.0 * 1024 * 1024 * 1024,
+    }
+
+    TITLE = 'VSZ'
+
+    def __init__(self, unit='MiB'):
+        self.__scale = self.unit_map[unit]
+        self.max_length = 0
+
+    def create(self, val):
+        disp_val = '%.1f' % (val / self.__scale)
+        if len(disp_val) > self.max_length:
+            self.max_length = len(disp_val)
+        return disp_val
+
+    def get_width(self):
+        return max(len(self.TITLE), self.max_length)
+
+    def renderHeader(self):
+        return self.TITLE.rjust(self.get_width())
+
+    def renderValue(self, disp_val):
+        return disp_val.rjust(self.get_width())
+
+
+class Context(object):
+    def __init__(self, args):
+        self.args = args
+        self.vsz_mem_disp = MemoryDisplay()
 
 
 class Process(object):
 
-    def __init__(self, pid, args):
+    PAGE_SIZE = 0x1000
+
+    def __init__(self, ctx, pid):
+        self.__ctx = ctx
+        args = ctx.args
         stat_arr = self.__read_stat(pid)
 
         self.pid = int(stat_arr[0])
@@ -33,13 +68,16 @@ class Process(object):
         self.ppid = int(stat_arr[3])
         self.name = self.__get_name(stat_arr)
         self.vsz = int(stat_arr[22])
-        self.rss = int(stat_arr[23]) * 4096
+        self.rss = int(stat_arr[23]) * self.PAGE_SIZE
 
         self.parent = None
         self.children = []
 
         if args.command_line:
             self.cmd_arr = self.__read_commandline(pid)
+
+        if args.virtual_memory_size:
+            self.vsz_disp = ctx.vsz_mem_disp.create(self.vsz)
 
 
     def __read_stat(self, pid):
@@ -65,16 +103,20 @@ class Process(object):
         return s
 
     def get_info_line(self, formatter):
+        ctx = self.__ctx
         s = f'{self.pid}'.rjust(formatter.get_pid_width())
         s += formatter.get_separator()
         s += f'{self.status}'.rjust(formatter.get_status_width())
+        s += formatter.get_separator()
+        if ctx.args.virtual_memory_size:
+            s += ctx.vsz_mem_disp.renderValue(self.vsz_disp)
         return s
 
 
 class ProcessTree(object):
 
     def __init__(self, args):
-        self.__args = args
+        self.__ctx = Context(args)
         self.proc_map = {}
         self.root_proc_list = []
         for proc in self.__list_processes():
@@ -86,7 +128,7 @@ class ProcessTree(object):
         re_proc_name = re.compile(r'^\d+$')
         entries = os.listdir('/proc')
         for dirname in filter(lambda x: re_proc_name.match(x), entries):
-            yield Process(pid=dirname, args=self.__args)
+            yield Process(self.__ctx, pid=dirname)
 
     def __associate_parent_with_children(self):
         for pid, proc in self.proc_map.items():
@@ -104,7 +146,7 @@ class ProcessTree(object):
         s = proc.get_info_line(formatter)
         s += formatter.get_separator()
         s += self.__create_space_header(depth)
-        if self.__args.command_line:
+        if self.__ctx.args.command_line:
             s += " ".join(proc.cmd_arr)
         else:
             s += f'{proc.name}'
@@ -112,9 +154,22 @@ class ProcessTree(object):
         for child in proc.children:
             self.__create_one_proc_line(child, formatter, depth+1)
 
+    def show_header(self, formatter):
+        ctx = self.__ctx
+
+        s = 'PID'.ljust(formatter.get_pid_width())
+        s += formatter.get_separator()
+        s += 'S'.ljust(formatter.get_status_width())
+        s += formatter.get_separator()
+        if ctx.args.virtual_memory_size:
+            s += ctx.vsz_mem_disp.renderHeader()
+        s += formatter.get_separator()
+        s += 'Command'
+        print(s)
+
     def show_tree(self):
         formatter = Formatter()
-        print(formatter.get_header())
+        self.show_header(formatter)
         for root_proc in self.root_proc_list:
             self.__create_one_proc_line(root_proc, formatter, 0)
 
@@ -134,6 +189,7 @@ def main():
     parser = argparse.ArgumentParser(description='A tool to list processes.')
     parser.add_argument('-l', '--list-processes', action='store_true')
     parser.add_argument('-c', '--command-line', action='store_true')
+    parser.add_argument('-vsz', '--virtual-memory-size', action='store_true')
     args = parser.parse_args()
     run(args)
 
