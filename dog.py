@@ -8,13 +8,28 @@ class Formatter(object):
     def get_pid_width(self):
         return 6
 
+    def get_status_width(self):
+        return 1
+
+    def get_separator(self):
+        return ' '
+
+    def get_header(self):
+        s = 'PID'.ljust(self.get_pid_width())
+        s += self.get_separator()
+        s += 'S'.ljust(self.get_status_width())
+        s += self.get_separator()
+        s += 'Command'
+        return s
+
 
 class Process(object):
 
-    def __init__(self, pid):
+    def __init__(self, pid, args):
         stat_arr = self.__read_stat(pid)
 
         self.pid = int(stat_arr[0])
+        self.status = stat_arr[2]
         self.ppid = int(stat_arr[3])
         self.name = self.__get_name(stat_arr)
         self.vsz = int(stat_arr[22])
@@ -23,9 +38,17 @@ class Process(object):
         self.parent = None
         self.children = []
 
+        if args.command_line:
+            self.cmd_arr = self.__read_commandline(pid)
+
+
     def __read_stat(self, pid):
         with open(f'/proc/{pid}/stat') as f:
             return f.read().split()
+
+    def __read_commandline(self, pid):
+        with open(f'/proc/{pid}/cmdline') as f:
+            return f.read().split('\0')
 
     def __get_name(self, stat_arr):
         return stat_arr[1][1:-1]
@@ -43,12 +66,15 @@ class Process(object):
 
     def get_info_line(self, formatter):
         s = f'{self.pid}'.rjust(formatter.get_pid_width())
+        s += formatter.get_separator()
+        s += f'{self.status}'.rjust(formatter.get_status_width())
         return s
 
 
 class ProcessTree(object):
 
-    def __init__(self):
+    def __init__(self, args):
+        self.__args = args
         self.proc_map = {}
         self.root_proc_list = []
         for proc in self.__list_processes():
@@ -60,7 +86,7 @@ class ProcessTree(object):
         re_proc_name = re.compile(r'^\d+$')
         entries = os.listdir('/proc')
         for dirname in filter(lambda x: re_proc_name.match(x), entries):
-            yield Process(pid=dirname)
+            yield Process(pid=dirname, args=self.__args)
 
     def __associate_parent_with_children(self):
         for pid, proc in self.proc_map.items():
@@ -74,18 +100,23 @@ class ProcessTree(object):
     def __create_space_header(self, depth):
         return ''.join([' ' for i in range(depth*2)])
 
-    def __create_one_proc_line(self, proc, depth):
-        formatter = Formatter()
-        s = proc.get_info_line(formatter) + ' '
+    def __create_one_proc_line(self, proc, formatter, depth):
+        s = proc.get_info_line(formatter)
+        s += formatter.get_separator()
         s += self.__create_space_header(depth)
-        s += f'{proc.name}'
+        if self.__args.command_line:
+            s += " ".join(proc.cmd_arr)
+        else:
+            s += f'{proc.name}'
         print(s)
         for child in proc.children:
-            self.__create_one_proc_line(child, depth+1)
+            self.__create_one_proc_line(child, formatter, depth+1)
 
     def show_tree(self):
+        formatter = Formatter()
+        print(formatter.get_header())
         for root_proc in self.root_proc_list:
-            self.__create_one_proc_line(root_proc, 0)
+            self.__create_one_proc_line(root_proc, formatter, 0)
 
     def show_list(self):
         for proc in self.proc_map.values():
@@ -93,7 +124,7 @@ class ProcessTree(object):
 
 
 def run(args):
-    proc_tree = ProcessTree()
+    proc_tree = ProcessTree(args)
     if args.list_processes:
         proc_tree.show_list()
     proc_tree.show_tree()
@@ -102,6 +133,7 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description='A tool to list processes.')
     parser.add_argument('-l', '--list-processes', action='store_true')
+    parser.add_argument('-c', '--command-line', action='store_true')
     args = parser.parse_args()
     run(args)
 
