@@ -25,6 +25,26 @@ class DisplayElement(object):
     def render(self):
         return self.master.renderValue(self.disp_val)
 
+class Display(object):
+    def __init__(self, title):
+        self.title = title
+        self.max_length = 0
+
+    def create(self, val):
+        disp_val = str(val)
+        if len(disp_val) > self.max_length:
+            self.max_length = len(disp_val)
+        return DisplayElement(self, disp_val)
+
+    def get_width(self):
+        return max(len(self.title), self.max_length)
+
+    def renderHeader(self):
+        return self.title.rjust(self.get_width())
+
+    def renderValue(self, disp_val):
+        return disp_val.rjust(self.get_width())
+
 
 class MemoryDisplay(object):
     unit_map = {
@@ -59,6 +79,8 @@ class MemoryDisplay(object):
 class Context(object):
     def __init__(self, args):
         self.args = args
+        self.pid_disp = Display('PID')
+        self.status_disp = Display('S')
         self.vsz_mem_disp = MemoryDisplay('VSZ')
         self.rss_mem_disp = MemoryDisplay('RSS')
 
@@ -87,6 +109,9 @@ class Process(object):
 
         self.display_list = []
         display_list = self.display_list
+
+        display_list.append(ctx.pid_disp.create(self.pid))
+        display_list.append(ctx.status_disp.create(self.status))
 
         if args.virtual_memory_size:
             display_list.append(ctx.vsz_mem_disp.create(self.vsz))
@@ -118,15 +143,8 @@ class Process(object):
         return s
 
     def get_info_line(self, formatter):
-        ctx = self.__ctx
-        s = f'{self.pid}'.rjust(formatter.get_pid_width())
-        s += formatter.get_separator()
-        s += f'{self.status}'.rjust(formatter.get_status_width())
-        s += formatter.get_separator()
-        for display in self.display_list:
-            s += display.render()
-            s += formatter.get_separator()
-        return s
+        sep = formatter.get_separator()
+        return sep.join([disp.render() for disp in self.display_list])
 
 
 class ProcessTree(object):
@@ -174,15 +192,14 @@ class ProcessTree(object):
         ctx = self.__ctx
 
         display_list = []
+        display_list.append(ctx.pid_disp)
+        display_list.append(ctx.status_disp)
         if ctx.args.virtual_memory_size:
             display_list.append(ctx.vsz_mem_disp)
         if ctx.args.resident_set_size:
             display_list.append(ctx.rss_mem_disp)
 
-        s = 'PID'.ljust(formatter.get_pid_width())
-        s += formatter.get_separator()
-        s += 'S'.ljust(formatter.get_status_width())
-        s += formatter.get_separator()
+        s = ''
         for display in display_list:
             s += display.renderHeader()
             s += formatter.get_separator()
