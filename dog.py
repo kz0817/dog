@@ -56,34 +56,12 @@ class MemoryDisplay(Display):
         return super(MemoryDisplay, self).create(disp_val)
 
 
-class Context(object):
-    def __init__(self, args):
-        self.args = args
-        self.display_list = []
-
-        generator_list = [
-            ('pid_disp', lambda: Display('PID'), True),
-            ('status_disp', lambda: Display('S'), True),
-            ('vsz_mem_disp', lambda: MemoryDisplay('VSZ'),
-             args.virtual_memory_size),
-            ('rss_mem_disp', lambda: MemoryDisplay('RSS'),
-             args.resident_set_size),
-        ]
-        for disp_name, generator, cond in generator_list:
-            if not cond:
-                continue
-            disp = generator()
-            setattr(self, disp_name, disp)
-            self.display_list.append(disp)
-
-
 class Process(object):
 
     PAGE_SIZE = 0x1000
 
-    def __init__(self, ctx, pid):
-        self.__ctx = ctx
-        args = ctx.args
+    def __init__(self, args, pid):
+
         stat_arr = self.__read_stat(pid)
 
         self.pid = int(stat_arr[0])
@@ -98,22 +76,6 @@ class Process(object):
 
         if args.command_line:
             self.cmd_arr = self.__read_commandline(pid)
-
-        self.display_list = []
-        display_list = self.display_list
-
-        disp_val_list = [
-            ('pid_disp', self.pid),
-            ('status_disp', self.status),
-            ('vsz_mem_disp', self.vsz),
-            ('rss_mem_disp', self.rss),
-        ]
-        for disp_name, value in disp_val_list:
-            disp = getattr(ctx, disp_name, None)
-            if disp is None:
-                return
-            display_list.append(disp.create(value))
-
 
     def __read_stat(self, pid):
         with open(f'/proc/{pid}/stat') as f:
@@ -137,27 +99,63 @@ class Process(object):
         s += f'name: {self.name}, '
         return s
 
-    def get_info_line(self, formatter):
-        sep = formatter.get_separator()
-        return sep.join([disp.render() for disp in self.display_list])
+class DisplayManager(object):
+    def __init__(self, args):
+        self.display_list = []
+
+        generator_list = [(
+            'pid_disp',
+            lambda: Display('PID'),
+            lambda proc: proc.pid,
+            True
+        ), (
+            'status_disp',
+            lambda: Display('S'),
+            lambda proc: proc.status,
+            True
+        ), (
+            'vsz_mem_disp',
+            lambda: MemoryDisplay('VSZ'),
+            lambda proc: proc.vsz,
+             args.virtual_memory_size
+        ), (
+            'rss_mem_disp',
+            lambda: MemoryDisplay('RSS'),
+            lambda proc: proc.rss,
+            args.resident_set_size
+        )]
+        for disp_name, generator, value_getter, cond in generator_list:
+            if not cond:
+                continue
+            disp = generator()
+            self.display_list.append((disp, value_getter))
+
+    def render(self, proc):
+        for disp, value_getter in self.display_list:
+            yield disp.create(value_getter(proc))
 
 
 class ProcessTree(object):
 
     def __init__(self, args):
-        self.__ctx = Context(args)
+        self.args = args
+        self.display_manager = DisplayManager(args)
         self.proc_map = {}
         self.root_proc_list = []
-        for proc in self.__list_processes():
+        for proc in self.__list_processes(args):
             self.proc_map[proc.pid] = proc
 
         self.__associate_parent_with_children()
 
-    def __list_processes(self):
+        # The following method shall be called before the actual showing
+        # get the maximum width of each column.
+        self.__render_display_elements_for_all_process()
+
+    def __list_processes(self, args):
         re_proc_name = re.compile(r'^\d+$')
         entries = os.listdir('/proc')
         for dirname in filter(lambda x: re_proc_name.match(x), entries):
-            yield Process(self.__ctx, pid=dirname)
+            yield Process(self.args, pid=dirname)
 
     def __associate_parent_with_children(self):
         for pid, proc in self.proc_map.items():
@@ -168,14 +166,24 @@ class ProcessTree(object):
             else:
                 parent.children.append(proc)
 
+    def __render_display_elements_for_all_process(self):
+        for pid, proc in self.proc_map.items():
+            proc.disp_elem_list = []
+            for display, value_getter in self.display_manager.display_list:
+                v = value_getter(proc)
+                proc.disp_elem_list.append(display.create(v))
+
     def __create_space_header(self, depth):
         return ''.join([' ' for i in range(depth*2)])
 
     def __create_one_proc_line(self, proc, formatter, depth):
-        s = proc.get_info_line(formatter)
-        s += formatter.get_separator()
+        s = ''
+        for disp_elem in proc.disp_elem_list:
+            s += disp_elem.render()
+            s += formatter.get_separator()
+
         s += self.__create_space_header(depth)
-        if self.__ctx.args.command_line:
+        if self.args.command_line:
             s += " ".join(proc.cmd_arr)
         else:
             s += f'{proc.name}'
@@ -184,10 +192,8 @@ class ProcessTree(object):
             self.__create_one_proc_line(child, formatter, depth+1)
 
     def show_header(self, formatter):
-        ctx = self.__ctx
-
         s = ''
-        for display in ctx.display_list:
+        for display, value_getter in self.display_manager.display_list:
             s += display.renderHeader()
             s += formatter.get_separator()
         s += 'Command'
