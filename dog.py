@@ -19,6 +19,7 @@ class DisplayElement(object):
 
 class Display(object):
 
+    NO_ALIGN = -1
     LEFT = 0
     RIGHT = 1
 
@@ -43,7 +44,9 @@ class Display(object):
         return self.__align(disp_val)
 
     def __align(self, msg):
-        if self.align == self.LEFT:
+        if self.align == self.NO_ALIGN:
+            return msg
+        elif self.align == self.LEFT:
             return msg.ljust(self.get_width())
         else:
             return msg.rjust(self.get_width())
@@ -51,7 +54,7 @@ class Display(object):
 
 class CommandDisplay(Display):
     def __init__(self, title, show_command_line):
-        super(CommandDisplay, self).__init__(title, Display.LEFT)
+        super(CommandDisplay, self).__init__(title, Display.NO_ALIGN)
         self.__show_command_line = show_command_line
 
     def create(self, proc):
