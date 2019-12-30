@@ -107,22 +107,22 @@ class DisplayManager(object):
             'pid_disp',
             lambda: Display('PID'),
             lambda proc: proc.pid,
-            True
+            'pid' in args.output
         ), (
             'status_disp',
             lambda: Display('S'),
             lambda proc: proc.status,
-            True
+            'stat' in args.output
         ), (
             'vsz_mem_disp',
             lambda: MemoryDisplay('VSZ'),
             lambda proc: proc.vsz,
-             args.virtual_memory_size
+            'vsz' in args.output
         ), (
             'rss_mem_disp',
             lambda: MemoryDisplay('RSS'),
             lambda proc: proc.rss,
-            args.resident_set_size
+            'rss' in args.output
         )]
         for disp_name, generator, value_getter, cond in generator_list:
             if not cond:
@@ -221,8 +221,8 @@ def main():
     parser = argparse.ArgumentParser(description='A tool to list processes.')
     parser.add_argument('-l', '--list-processes', action='store_true')
     parser.add_argument('-c', '--command-line', action='store_true')
-    parser.add_argument('-vsz', '--virtual-memory-size', action='store_true')
-    parser.add_argument('-rss', '--resident-set-size', action='store_true')
+    parser.add_argument('-o', '--output', nargs='*', default=['pid', 'cmd'],
+                        choices=['pid', 'cmd', 'stat', 'vsz', 'rss'])
     args = parser.parse_args()
     run(args)
 
