@@ -17,6 +17,15 @@ class Formatter(object):
     def get_header(self):
         return s
 
+class DisplayElement(object):
+    def __init__(self, master, disp_val):
+        self.master = master
+        self.disp_val = disp_val
+
+    def render(self):
+        return self.master.renderValue(self.disp_val)
+
+
 class MemoryDisplay(object):
     unit_map = {
         'B': 1,
@@ -26,9 +35,8 @@ class MemoryDisplay(object):
         'TiB': 1024.0 * 1024 * 1024 * 1024,
     }
 
-    TITLE = 'VSZ'
-
-    def __init__(self, unit='MiB'):
+    def __init__(self, title, unit='MiB'):
+        self.title = title
         self.__scale = self.unit_map[unit]
         self.max_length = 0
 
@@ -36,13 +44,13 @@ class MemoryDisplay(object):
         disp_val = '%.1f' % (val / self.__scale)
         if len(disp_val) > self.max_length:
             self.max_length = len(disp_val)
-        return disp_val
+        return DisplayElement(self, disp_val)
 
     def get_width(self):
-        return max(len(self.TITLE), self.max_length)
+        return max(len(self.title), self.max_length)
 
     def renderHeader(self):
-        return self.TITLE.rjust(self.get_width())
+        return self.title.rjust(self.get_width())
 
     def renderValue(self, disp_val):
         return disp_val.rjust(self.get_width())
@@ -51,7 +59,8 @@ class MemoryDisplay(object):
 class Context(object):
     def __init__(self, args):
         self.args = args
-        self.vsz_mem_disp = MemoryDisplay()
+        self.vsz_mem_disp = MemoryDisplay('VSZ')
+        self.rss_mem_disp = MemoryDisplay('RSS')
 
 
 class Process(object):
@@ -76,8 +85,14 @@ class Process(object):
         if args.command_line:
             self.cmd_arr = self.__read_commandline(pid)
 
+        self.display_list = []
+        display_list = self.display_list
+
         if args.virtual_memory_size:
-            self.vsz_disp = ctx.vsz_mem_disp.create(self.vsz)
+            display_list.append(ctx.vsz_mem_disp.create(self.vsz))
+
+        if args.resident_set_size:
+            display_list.append(ctx.rss_mem_disp.create(self.rss))
 
 
     def __read_stat(self, pid):
@@ -108,8 +123,9 @@ class Process(object):
         s += formatter.get_separator()
         s += f'{self.status}'.rjust(formatter.get_status_width())
         s += formatter.get_separator()
-        if ctx.args.virtual_memory_size:
-            s += ctx.vsz_mem_disp.renderValue(self.vsz_disp)
+        for display in self.display_list:
+            s += display.render()
+            s += formatter.get_separator()
         return s
 
 
@@ -157,13 +173,19 @@ class ProcessTree(object):
     def show_header(self, formatter):
         ctx = self.__ctx
 
+        display_list = []
+        if ctx.args.virtual_memory_size:
+            display_list.append(ctx.vsz_mem_disp)
+        if ctx.args.resident_set_size:
+            display_list.append(ctx.rss_mem_disp)
+
         s = 'PID'.ljust(formatter.get_pid_width())
         s += formatter.get_separator()
         s += 'S'.ljust(formatter.get_status_width())
         s += formatter.get_separator()
-        if ctx.args.virtual_memory_size:
-            s += ctx.vsz_mem_disp.renderHeader()
-        s += formatter.get_separator()
+        for display in display_list:
+            s += display.renderHeader()
+            s += formatter.get_separator()
         s += 'Command'
         print(s)
 
@@ -190,6 +212,7 @@ def main():
     parser.add_argument('-l', '--list-processes', action='store_true')
     parser.add_argument('-c', '--command-line', action='store_true')
     parser.add_argument('-vsz', '--virtual-memory-size', action='store_true')
+    parser.add_argument('-rss', '--resident-set-size', action='store_true')
     args = parser.parse_args()
     run(args)
 
