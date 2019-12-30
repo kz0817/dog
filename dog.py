@@ -46,7 +46,7 @@ class Display(object):
         return disp_val.rjust(self.get_width())
 
 
-class MemoryDisplay(object):
+class MemoryDisplay(Display):
     unit_map = {
         'B': 1,
         'KiB': 1024.0,
@@ -56,24 +56,12 @@ class MemoryDisplay(object):
     }
 
     def __init__(self, title, unit='MiB'):
-        self.title = title
+        super(MemoryDisplay, self).__init__(title)
         self.__scale = self.unit_map[unit]
-        self.max_length = 0
 
     def create(self, val):
         disp_val = '%.1f' % (val / self.__scale)
-        if len(disp_val) > self.max_length:
-            self.max_length = len(disp_val)
-        return DisplayElement(self, disp_val)
-
-    def get_width(self):
-        return max(len(self.title), self.max_length)
-
-    def renderHeader(self):
-        return self.title.rjust(self.get_width())
-
-    def renderValue(self, disp_val):
-        return disp_val.rjust(self.get_width())
+        return super(MemoryDisplay, self).create(disp_val)
 
 
 class Context(object):
