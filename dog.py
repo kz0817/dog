@@ -89,7 +89,10 @@ class MemoryDisplay(Display):
         self.__scale = self.unit_map[unit]
 
     def create(self, val):
-        disp_val = '%.1f' % (val / self.__scale)
+        if self.__scale == 1:
+            disp_val = f'{val}'
+        else:
+            disp_val = '%.1f' % (val / self.__scale)
         return super(MemoryDisplay, self).create(disp_val)
 
 
