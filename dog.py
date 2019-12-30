@@ -167,11 +167,11 @@ class DisplayManager(object):
                 lambda proc: proc.status,
             ),
             'vsz': (
-                lambda: MemoryDisplay('VSZ'),
+                lambda: MemoryDisplay('VSZ', args.vsz_unit),
                 lambda proc: proc.vsz,
             ),
             'rss': (
-                lambda: MemoryDisplay('RSS'),
+                lambda: MemoryDisplay('RSS', args.rss_unit),
                 lambda proc: proc.rss,
             ),
             'nthr': (
@@ -279,11 +279,17 @@ def main():
         'pid', 'ppid', 'pgid', 'sid', 'cmd', 'stat', 'vsz', 'rss', 'nthr',
     ]
 
+    size_unit_choices = [
+        'B', 'KiB', 'MiB', 'GiB', 'TiB'
+    ]
+
     parser = argparse.ArgumentParser(description='A tool to list processes.')
     parser.add_argument('-l', '--list-processes', action='store_true')
     parser.add_argument('-c', '--command-line', action='store_true')
     parser.add_argument('-o', '--output', nargs='*', default=['pid', 'cmd'],
                         choices=output_choices)
+    parser.add_argument('--vsz-unit', choices=size_unit_choices, default='MiB')
+    parser.add_argument('--rss-unit', choices=size_unit_choices, default='MiB')
     args = parser.parse_args()
     run(args)
 
