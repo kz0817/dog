@@ -103,30 +103,27 @@ class DisplayManager(object):
     def __init__(self, args):
         self.display_list = []
 
-        generator_list = [(
-            'pid_disp',
-            lambda: Display('PID'),
-            lambda proc: proc.pid,
-            'pid' in args.output
-        ), (
-            'status_disp',
-            lambda: Display('S'),
-            lambda proc: proc.status,
-            'stat' in args.output
-        ), (
-            'vsz_mem_disp',
-            lambda: MemoryDisplay('VSZ'),
-            lambda proc: proc.vsz,
-            'vsz' in args.output
-        ), (
-            'rss_mem_disp',
-            lambda: MemoryDisplay('RSS'),
-            lambda proc: proc.rss,
-            'rss' in args.output
-        )]
-        for disp_name, generator, value_getter, cond in generator_list:
-            if not cond:
-                continue
+        column_def = {
+            'pid': (
+                lambda: Display('PID'),
+                lambda proc: proc.pid,
+            ),
+            'stat': (
+                lambda: Display('S'),
+                lambda proc: proc.status,
+            ),
+            'vsz': (
+                lambda: MemoryDisplay('VSZ'),
+                lambda proc: proc.vsz,
+            ),
+            'rss:': (
+                lambda: MemoryDisplay('RSS'),
+                lambda proc: proc.rss,
+            ),
+        }
+
+        for column_name in args.output:
+            generator, value_getter = column_def[column_name]
             disp = generator()
             self.display_list.append((disp, value_getter))
 
