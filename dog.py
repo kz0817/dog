@@ -169,11 +169,12 @@ class ProcessTree(object):
     def __init__(self, args):
         self.args = args
         self.display_manager = DisplayManager(args)
+
         self.proc_map = {}
-        self.root_proc_list = []
         for proc in self.__list_processes(args):
             self.proc_map[proc.pid] = proc
 
+        self.root_proc_list = []
         self.__associate_parent_with_children()
         self.__set_depth_of_process()
 
