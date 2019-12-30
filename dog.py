@@ -5,17 +5,9 @@ import os
 
 class Formatter(object):
 
-    def get_pid_width(self):
-        return 6
-
-    def get_status_width(self):
-        return 1
-
     def get_separator(self):
         return ' '
 
-    def get_header(self):
-        return s
 
 class DisplayElement(object):
     def __init__(self, master, disp_val):
