@@ -215,19 +215,16 @@ class ProcessTree(object):
                 proc.disp_elem_list.append(display.create(v))
 
     def __create_one_proc_line(self, proc, formatter):
-        s = ''
-        for disp_elem in proc.disp_elem_list:
-            s += disp_elem.render()
-            s += formatter.get_separator()
+        sep = formatter.get_separator()
+        s = sep.join([disp_elem.render() for disp_elem in proc.disp_elem_list])
         print(s)
         for child in proc.children:
             self.__create_one_proc_line(child, formatter)
 
     def show_header(self, formatter):
-        s = ''
-        for display, value_getter in self.display_manager.display_list:
-            s += display.renderHeader()
-            s += formatter.get_separator()
+        sep = formatter.get_separator()
+        disp_mgr_list = self.display_manager.display_list
+        s = sep.join([disp.renderHeader() for disp, x in disp_mgr_list])
         print(s)
 
     def show_tree(self):
