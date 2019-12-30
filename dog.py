@@ -282,9 +282,7 @@ def main():
         'pid', 'ppid', 'pgid', 'sid', 'cmd', 'stat', 'vsz', 'rss', 'nthr',
     ]
 
-    size_unit_choices = [
-        'B', 'KiB', 'MiB', 'GiB', 'TiB'
-    ]
+    size_unit_choices = MemoryDisplay.unit_map.keys()
 
     parser = argparse.ArgumentParser(description='A tool to list processes.')
     parser.add_argument('-l', '--list-processes', action='store_true')
