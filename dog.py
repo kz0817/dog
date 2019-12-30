@@ -59,10 +59,22 @@ class MemoryDisplay(Display):
 class Context(object):
     def __init__(self, args):
         self.args = args
-        self.pid_disp = Display('PID')
-        self.status_disp = Display('S')
-        self.vsz_mem_disp = MemoryDisplay('VSZ')
-        self.rss_mem_disp = MemoryDisplay('RSS')
+        self.display_list = []
+
+        generator_list = [
+            ('pid_disp', lambda: Display('PID'), True),
+            ('status_disp', lambda: Display('S'), True),
+            ('vsz_mem_disp', lambda: MemoryDisplay('VSZ'),
+             args.virtual_memory_size),
+            ('rss_mem_disp', lambda: MemoryDisplay('RSS'),
+             args.resident_set_size),
+        ]
+        for disp_name, generator, cond in generator_list:
+            if not cond:
+                continue
+            disp = generator()
+            setattr(self, disp_name, disp)
+            self.display_list.append(disp)
 
 
 class Process(object):
@@ -90,14 +102,17 @@ class Process(object):
         self.display_list = []
         display_list = self.display_list
 
-        display_list.append(ctx.pid_disp.create(self.pid))
-        display_list.append(ctx.status_disp.create(self.status))
-
-        if args.virtual_memory_size:
-            display_list.append(ctx.vsz_mem_disp.create(self.vsz))
-
-        if args.resident_set_size:
-            display_list.append(ctx.rss_mem_disp.create(self.rss))
+        disp_val_list = [
+            ('pid_disp', self.pid),
+            ('status_disp', self.status),
+            ('vsz_mem_disp', self.vsz),
+            ('rss_mem_disp', self.rss),
+        ]
+        for disp_name, value in disp_val_list:
+            disp = getattr(ctx, disp_name, None)
+            if disp is None:
+                return
+            display_list.append(disp.create(value))
 
 
     def __read_stat(self, pid):
@@ -171,16 +186,8 @@ class ProcessTree(object):
     def show_header(self, formatter):
         ctx = self.__ctx
 
-        display_list = []
-        display_list.append(ctx.pid_disp)
-        display_list.append(ctx.status_disp)
-        if ctx.args.virtual_memory_size:
-            display_list.append(ctx.vsz_mem_disp)
-        if ctx.args.resident_set_size:
-            display_list.append(ctx.rss_mem_disp)
-
         s = ''
-        for display in display_list:
+        for display in ctx.display_list:
             s += display.renderHeader()
             s += formatter.get_separator()
         s += 'Command'
