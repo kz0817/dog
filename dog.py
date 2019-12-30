@@ -104,6 +104,8 @@ class Process(object):
         self.pid = int(stat_arr[0])
         self.status = stat_arr[2]
         self.ppid = int(stat_arr[3])
+        self.pgid = int(stat_arr[4])
+        self.sid = int(stat_arr[5])
         self.name = self.__get_name(stat_arr)
         self.num_threads = int(stat_arr[19])
         self.vsz = int(stat_arr[22])
@@ -143,6 +145,18 @@ class DisplayManager(object):
             'pid': (
                 lambda: Display('PID'),
                 lambda proc: proc.pid,
+            ),
+            'ppid': (
+                lambda: Display('PPID'),
+                lambda proc: proc.ppid,
+            ),
+            'pgid': (
+                lambda: Display('PGID'),
+                lambda proc: proc.pgid,
+            ),
+            'sid': (
+                lambda: Display('SID'),
+                lambda proc: proc.sid,
             ),
             'cmd': (
                 lambda: CommandDisplay('COMMAND', args.command_line),
@@ -262,7 +276,7 @@ def run(args):
 def main():
 
     output_choices = [
-        'pid', 'cmd', 'stat', 'vsz', 'rss', 'nthr',
+        'pid', 'ppid', 'pgid', 'sid', 'cmd', 'stat', 'vsz', 'rss', 'nthr',
     ]
 
     parser = argparse.ArgumentParser(description='A tool to list processes.')
