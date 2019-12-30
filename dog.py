@@ -18,9 +18,14 @@ class DisplayElement(object):
         return self.master.renderValue(self.disp_val)
 
 class Display(object):
-    def __init__(self, title):
+
+    LEFT = 0
+    RIGHT = 1
+
+    def __init__(self, title, align=RIGHT):
         self.title = title
         self.max_length = 0
+        self.align = align
 
     def create(self, val):
         disp_val = str(val)
@@ -32,10 +37,34 @@ class Display(object):
         return max(len(self.title), self.max_length)
 
     def renderHeader(self):
-        return self.title.rjust(self.get_width())
+        return self.__align(self.title)
 
     def renderValue(self, disp_val):
-        return disp_val.rjust(self.get_width())
+        return self.__align(disp_val)
+
+    def __align(self, msg):
+        if self.align == self.LEFT:
+            return msg.ljust(self.get_width())
+        else:
+            return msg.rjust(self.get_width())
+
+
+class CommandDisplay(Display):
+    def __init__(self, title, show_command_line):
+        super(CommandDisplay, self).__init__(title, Display.LEFT)
+        self.__show_command_line = show_command_line
+
+    def create(self, proc):
+        s = ''
+        s += self.__create_space_header(proc.depth)
+        if self.__show_command_line:
+            s += ' '.join(proc.cmd_arr)
+        else:
+            s += f'{proc.name}'
+        return super(CommandDisplay, self).create(s)
+
+    def __create_space_header(self, depth):
+        return ''.join([' ' for i in range(depth*2)])
 
 
 class MemoryDisplay(Display):
@@ -101,12 +130,14 @@ class Process(object):
 
 class DisplayManager(object):
     def __init__(self, args):
-        self.display_list = []
-
         column_def = {
             'pid': (
                 lambda: Display('PID'),
                 lambda proc: proc.pid,
+            ),
+            'cmd': (
+                lambda: CommandDisplay('COMMAND', args.command_line),
+                lambda proc: proc,
             ),
             'stat': (
                 lambda: Display('S'),
@@ -122,6 +153,7 @@ class DisplayManager(object):
             ),
         }
 
+        self.display_list = []
         for column_name in args.output:
             generator, value_getter = column_def[column_name]
             disp = generator()
@@ -143,9 +175,10 @@ class ProcessTree(object):
             self.proc_map[proc.pid] = proc
 
         self.__associate_parent_with_children()
+        self.__set_depth_of_process()
 
-        # The following method shall be called before the actual showing
-        # get the maximum width of each column.
+        # The following method shall be called before show_tree() is called
+        # to get the maximum width of each column.
         self.__render_display_elements_for_all_process()
 
     def __list_processes(self, args):
@@ -163,6 +196,17 @@ class ProcessTree(object):
             else:
                 parent.children.append(proc)
 
+    def __set_depth_of_process(self):
+
+        def set_children_depth(proc):
+            for child in proc.children:
+                child.depth = proc.depth + 1
+                set_children_depth(child)
+
+        for root_proc in self.root_proc_list:
+            root_proc.depth = 0
+            set_children_depth(root_proc)
+
     def __render_display_elements_for_all_process(self):
         for pid, proc in self.proc_map.items():
             proc.disp_elem_list = []
@@ -170,37 +214,27 @@ class ProcessTree(object):
                 v = value_getter(proc)
                 proc.disp_elem_list.append(display.create(v))
 
-    def __create_space_header(self, depth):
-        return ''.join([' ' for i in range(depth*2)])
-
-    def __create_one_proc_line(self, proc, formatter, depth):
+    def __create_one_proc_line(self, proc, formatter):
         s = ''
         for disp_elem in proc.disp_elem_list:
             s += disp_elem.render()
             s += formatter.get_separator()
-
-        s += self.__create_space_header(depth)
-        if self.args.command_line:
-            s += " ".join(proc.cmd_arr)
-        else:
-            s += f'{proc.name}'
         print(s)
         for child in proc.children:
-            self.__create_one_proc_line(child, formatter, depth+1)
+            self.__create_one_proc_line(child, formatter)
 
     def show_header(self, formatter):
         s = ''
         for display, value_getter in self.display_manager.display_list:
             s += display.renderHeader()
             s += formatter.get_separator()
-        s += 'Command'
         print(s)
 
     def show_tree(self):
         formatter = Formatter()
         self.show_header(formatter)
         for root_proc in self.root_proc_list:
-            self.__create_one_proc_line(root_proc, formatter, 0)
+            self.__create_one_proc_line(root_proc, formatter)
 
     def show_list(self):
         for proc in self.proc_map.values():
