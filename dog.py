@@ -97,6 +97,7 @@ class Process(object):
         self.status = stat_arr[2]
         self.ppid = int(stat_arr[3])
         self.name = self.__get_name(stat_arr)
+        self.num_threads = int(stat_arr[19])
         self.vsz = int(stat_arr[22])
         self.rss = int(stat_arr[23]) * self.PAGE_SIZE
 
@@ -150,6 +151,10 @@ class DisplayManager(object):
             'rss': (
                 lambda: MemoryDisplay('RSS'),
                 lambda proc: proc.rss,
+            ),
+            'nthr': (
+                lambda: Display('Nth'),
+                lambda proc: proc.num_threads,
             ),
         }
 
@@ -247,11 +252,16 @@ def run(args):
 
 
 def main():
+
+    output_choices = [
+        'pid', 'cmd', 'stat', 'vsz', 'rss', 'nthr',
+    ]
+
     parser = argparse.ArgumentParser(description='A tool to list processes.')
     parser.add_argument('-l', '--list-processes', action='store_true')
     parser.add_argument('-c', '--command-line', action='store_true')
     parser.add_argument('-o', '--output', nargs='*', default=['pid', 'cmd'],
-                        choices=['pid', 'cmd', 'stat', 'vsz', 'rss'])
+                        choices=output_choices)
     args = parser.parse_args()
     run(args)
 
