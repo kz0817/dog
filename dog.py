@@ -58,12 +58,17 @@ class CommandDisplay(Display):
         self.__show_command_line = show_command_line
 
     def create(self, proc):
-        s = ''
-        s += self.__create_space_header(proc.depth)
+        s = self.__create_space_header(proc.depth)
+
+        cmd_line = ''
         if self.__show_command_line:
-            s += ' '.join(proc.cmd_arr)
+            cmd_line = ' '.join(proc.cmd_arr)
+
+        if len(cmd_line) > 0:
+            s += cmd_line
         else:
             s += f'{proc.name}'
+
         return super(CommandDisplay, self).create(s)
 
     def __create_space_header(self, depth):
