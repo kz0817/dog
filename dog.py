@@ -168,6 +168,10 @@ class DisplayManager(object):
             lambda args: Display('SID'),
             lambda proc: proc.sid,
         ),
+        'name': (
+            lambda args: Display('NAME', Display.LEFT),
+            lambda proc: proc.name,
+        ),
         'cmd': (
             lambda args: CommandDisplay('COMMAND', args.command_line),
             lambda proc: proc,
