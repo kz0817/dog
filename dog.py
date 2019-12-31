@@ -113,7 +113,7 @@ class Process(object):
         self.ppid = int(stat_arr[3])
         self.pgid = int(stat_arr[4])
         self.sid = int(stat_arr[5])
-        self.name = self.__get_name(stat_arr)
+        self.name = stat_arr[1]
         self.num_threads = int(stat_arr[19])
         self.vsz = int(stat_arr[22])
         self.rss = int(stat_arr[23]) * self.PAGE_SIZE
@@ -126,14 +126,14 @@ class Process(object):
 
     def __read_stat(self, pid):
         with open(f'/proc/{pid}/stat') as f:
-            return f.read().split()
+            line = f.read()
+            first, remaining = line.split('(', maxsplit=1)
+            second, others = remaining.rsplit(')', maxsplit=1)
+            return [first, second] + others.split()
 
     def __read_commandline(self, pid):
         with open(f'/proc/{pid}/cmdline') as f:
             return f.read().split('\0')
-
-    def __get_name(self, stat_arr):
-        return stat_arr[1][1:-1]
 
     def __str__(self):
         s = ''
