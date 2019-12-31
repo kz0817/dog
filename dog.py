@@ -53,9 +53,10 @@ class Display(object):
 
 
 class CommandDisplay(Display):
-    def __init__(self, title, show_command_line):
+    def __init__(self, title, show_command_line, max_width):
         super(CommandDisplay, self).__init__(title, Display.NO_ALIGN)
         self.__show_command_line = show_command_line
+        self.__max_width = max_width
 
     def create(self, proc):
         s = self.__create_space_header(proc.depth)
@@ -69,7 +70,15 @@ class CommandDisplay(Display):
         else:
             s += f'{proc.name}'
 
-        return super(CommandDisplay, self).create(s)
+        trimmed = self.__trim_if_necessary(s)
+        return super(CommandDisplay, self).create(trimmed)
+
+    def __trim_if_necessary(self, s):
+        if self.__max_width == 0:
+            return s
+        else:
+            return s[:self.__max_width]
+
 
     def __create_space_header(self, depth):
         return ''.join([' ' for i in range(depth*2)])
@@ -173,7 +182,7 @@ class DisplayManager(object):
             lambda proc: proc.name,
         ),
         'cmd': (
-            lambda args: CommandDisplay('COMMAND', args.command_line),
+            lambda args: CommandDisplay('COMMAND', args.command_line, args.max_cmd_width),
             lambda proc: proc,
         ),
         'stat': (
@@ -305,6 +314,7 @@ def main():
                         choices=DisplayManager.column_def.keys())
     parser.add_argument('--vsz-unit', choices=size_unit_choices, default='MiB')
     parser.add_argument('--rss-unit', choices=size_unit_choices, default='MiB')
+    parser.add_argument('-w', '--max-cmd-width', type=int, default=0)
     args = parser.parse_args()
     run(args)
 
