@@ -100,10 +100,14 @@ class Process(object):
 
     PAGE_SIZE = 0x1000
 
-    def __init__(self, args, pid):
+    def __init__(self, args, generic_pid, pid):
+        # The parameter 'generic_pid' is a typical process ID. It can consit
+        # of multiple lightweight processes (i.e. threads).
+        # 'pid' is a number which is sometimes called tid (thread ID).
 
         stat_arr = self.__read_stat(pid)
 
+        self.generic_pid = int(generic_pid)
         self.pid = int(stat_arr[0])
         self.status = stat_arr[2]
         self.ppid = int(stat_arr[3])
@@ -146,6 +150,10 @@ class DisplayManager(object):
     column_def = {
         'pid': (
             lambda args: Display('PID'),
+            lambda proc: proc.generic_pid,
+        ),
+        'tid': (
+            lambda args: Display('TID'),
             lambda proc: proc.pid,
         ),
         'ppid': (
@@ -216,7 +224,12 @@ class ProcessTree(object):
         re_proc_name = re.compile(r'^\d+$')
         entries = os.listdir('/proc')
         for dirname in filter(lambda x: re_proc_name.match(x), entries):
-            yield Process(self.args, pid=dirname)
+            pid = dirname
+            if args.show_thread:
+                for tid in os.listdir(f'/proc/{pid}/task'):
+                    yield Process(self.args, pid, tid)
+            else:
+                yield Process(self.args, pid, pid)
 
     def __associate_parent_with_children(self):
         for pid, proc in self.proc_map.items():
@@ -283,6 +296,7 @@ def main():
     parser = argparse.ArgumentParser(description='A tool to list processes.')
     parser.add_argument('-l', '--list-processes', action='store_true')
     parser.add_argument('-c', '--command-line', action='store_true')
+    parser.add_argument('-t', '--show-thread', action='store_true')
     parser.add_argument('-o', '--output', nargs='*', default=['pid', 'cmd'],
                         choices=DisplayManager.column_def.keys())
     parser.add_argument('--vsz-unit', choices=size_unit_choices, default='MiB')
