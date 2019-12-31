@@ -63,7 +63,7 @@ class CommandDisplay(Display):
 
         cmd_line = ''
         if self.__show_command_line:
-            cmd_line = ' '.join(proc.cmd_arr)
+            cmd_line = ' '.join(proc.read_command_parameters())
 
         if len(cmd_line) > 0:
             s += cmd_line
@@ -130,9 +130,6 @@ class Process(object):
         self.parent = None
         self.children = []
 
-        if args.command_line:
-            self.cmd_arr = self.__read_commandline(pid)
-
     def __read_stat(self, pid):
         with open(f'/proc/{pid}/stat') as f:
             line = f.read()
@@ -140,8 +137,8 @@ class Process(object):
             second, others = remaining.rsplit(')', maxsplit=1)
             return [first, second] + others.split()
 
-    def __read_commandline(self, pid):
-        with open(f'/proc/{pid}/cmdline') as f:
+    def read_command_parameters(self):
+        with open(f'/proc/{self.pid}/cmdline') as f:
             return f.read().split('\0')
 
     def __str__(self):
