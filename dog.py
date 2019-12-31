@@ -143,50 +143,50 @@ class Process(object):
         return s
 
 class DisplayManager(object):
-    def __init__(self, args):
-        column_def = {
-            'pid': (
-                lambda: Display('PID'),
-                lambda proc: proc.pid,
-            ),
-            'ppid': (
-                lambda: Display('PPID'),
-                lambda proc: proc.ppid,
-            ),
-            'pgid': (
-                lambda: Display('PGID'),
-                lambda proc: proc.pgid,
-            ),
-            'sid': (
-                lambda: Display('SID'),
-                lambda proc: proc.sid,
-            ),
-            'cmd': (
-                lambda: CommandDisplay('COMMAND', args.command_line),
-                lambda proc: proc,
-            ),
-            'stat': (
-                lambda: Display('S'),
-                lambda proc: proc.status,
-            ),
-            'vsz': (
-                lambda: MemoryDisplay('VSZ', args.vsz_unit),
-                lambda proc: proc.vsz,
-            ),
-            'rss': (
-                lambda: MemoryDisplay('RSS', args.rss_unit),
-                lambda proc: proc.rss,
-            ),
-            'nthr': (
-                lambda: Display('Nth'),
-                lambda proc: proc.num_threads,
-            ),
-        }
+    column_def = {
+        'pid': (
+            lambda args: Display('PID'),
+            lambda proc: proc.pid,
+        ),
+        'ppid': (
+            lambda args: Display('PPID'),
+            lambda proc: proc.ppid,
+        ),
+        'pgid': (
+            lambda args: Display('PGID'),
+            lambda proc: proc.pgid,
+        ),
+        'sid': (
+            lambda args: Display('SID'),
+            lambda proc: proc.sid,
+        ),
+        'cmd': (
+            lambda args: CommandDisplay('COMMAND', args.command_line),
+            lambda proc: proc,
+        ),
+        'stat': (
+            lambda: Display('S'),
+            lambda proc: proc.status,
+        ),
+        'vsz': (
+            lambda args: MemoryDisplay('VSZ', args.vsz_unit),
+            lambda proc: proc.vsz,
+        ),
+        'rss': (
+            lambda args: MemoryDisplay('RSS', args.rss_unit),
+            lambda proc: proc.rss,
+        ),
+        'nthr': (
+            lambda args: Display('Nth'),
+            lambda proc: proc.num_threads,
+        ),
+    }
 
+    def __init__(self, args):
         self.display_list = []
         for column_name in args.output:
-            generator, value_getter = column_def[column_name]
-            disp = generator()
+            generator, value_getter = self.column_def[column_name]
+            disp = generator(args)
             self.display_list.append((disp, value_getter))
 
     def render(self, proc):
@@ -278,17 +278,13 @@ def run(args):
 
 def main():
 
-    output_choices = [
-        'pid', 'ppid', 'pgid', 'sid', 'cmd', 'stat', 'vsz', 'rss', 'nthr',
-    ]
-
     size_unit_choices = MemoryDisplay.unit_map.keys()
 
     parser = argparse.ArgumentParser(description='A tool to list processes.')
     parser.add_argument('-l', '--list-processes', action='store_true')
     parser.add_argument('-c', '--command-line', action='store_true')
     parser.add_argument('-o', '--output', nargs='*', default=['pid', 'cmd'],
-                        choices=output_choices)
+                        choices=DisplayManager.column_def.keys())
     parser.add_argument('--vsz-unit', choices=size_unit_choices, default='MiB')
     parser.add_argument('--rss-unit', choices=size_unit_choices, default='MiB')
     args = parser.parse_args()
