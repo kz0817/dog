@@ -130,12 +130,24 @@ class Process(object):
         self.parent = None
         self.children = []
 
+        status_map = self.__read_status(pid)
+
+        self.ruid, self.euid, self.suid, self.fuid = status_map['Uid'].split()
+
     def __read_stat(self, pid):
         with open(f'/proc/{pid}/stat') as f:
             line = f.read()
             first, remaining = line.split('(', maxsplit=1)
             second, others = remaining.rsplit(')', maxsplit=1)
             return [first, second] + others.split()
+
+    def __read_status(self, pid):
+        kv_map = {}
+        with open(f'/proc/{pid}/status') as f:
+            for line in f:
+                key, remaining = line.split(':', maxsplit=1)
+                kv_map[key] = remaining.strip()
+        return kv_map
 
     def read_command_parameters(self):
         with open(f'/proc/{self.pid}/cmdline') as f:
@@ -214,6 +226,22 @@ class DisplayManager(object):
         'pidns': (
             lambda args: Display('PIDNS'),
             lambda proc: proc.get_ns('pid'),
+        ),
+        'ruid': (
+            lambda args: Display('RUID'),
+            lambda proc: proc.ruid,
+        ),
+        'euid': (
+            lambda args: Display('EUID'),
+            lambda proc: proc.euid,
+        ),
+        'suid': (
+            lambda args: Display('SUID'),
+            lambda proc: proc.suid,
+        ),
+        'fuid': (
+            lambda args: Display('FUID'),
+            lambda proc: proc.fuid,
         ),
     }
 
