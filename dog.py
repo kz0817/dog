@@ -155,6 +155,15 @@ class Process(object):
         s += f'name: {self.name}, '
         return s
 
+    def get_ns(self, ns_type):
+        try:
+            ns = os.readlink(f'/proc/{self.pid}/ns/{ns_type}')
+            start = len(ns_type) + 2
+            return ns[start:-1]
+        except PermissionError:
+            return '-'
+
+
 class DisplayManager(object):
     column_def = {
         'pid': (
@@ -200,6 +209,14 @@ class DisplayManager(object):
         'nthr': (
             lambda args: Display('Nth'),
             lambda proc: proc.num_threads,
+        ),
+        'netns': (
+            lambda args: Display('NETNS'),
+            lambda proc: proc.get_ns('net'),
+        ),
+        'pidns': (
+            lambda args: Display('PIDNS'),
+            lambda proc: proc.get_ns('pid'),
         ),
     }
 
