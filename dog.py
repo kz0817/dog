@@ -84,6 +84,33 @@ class CommandDisplay(Display):
         return ''.join([' ' for i in range(depth*2)])
 
 
+class UidGidDisplay(Display):
+
+    uid_name_map = None
+    gid_name_map = None
+
+    def __init__(self, title, use_name):
+        super(UidGidDisplay, self).__init__(title)
+        self.__use_name = use_name
+        if self.uid_name_map is None:
+            self.uid_name_map = self.__create_uid_name_map()
+
+    def __create_uid_name_map(self):
+        uid_name_map = {}
+        with open(f'/etc/passwd') as f:
+            for line in f:
+                name, passwd, uid, gid, others = line.split(':', maxsplit=4)
+                uid_name_map[uid] = name
+        return uid_name_map
+
+    def create(self, val):
+        if self.__use_name:
+            disp_val = self.uid_name_map.get(val, val)
+        else:
+            disp_val = val
+        return super(UidGidDisplay, self).create(disp_val)
+
+
 class MemoryDisplay(Display):
     unit_map = {
         'B': 1,
@@ -228,19 +255,19 @@ class DisplayManager(object):
             lambda proc: proc.get_ns('pid'),
         ),
         'ruid': (
-            lambda args: Display('RUID'),
+            lambda args: UidGidDisplay('RUID', args.show_name_instead_of_id),
             lambda proc: proc.ruid,
         ),
         'euid': (
-            lambda args: Display('EUID'),
+            lambda args: UidGidDisplay('EUID', args.show_name_instead_of_id),
             lambda proc: proc.euid,
         ),
         'suid': (
-            lambda args: Display('SUID'),
+            lambda args: UidGidDisplay('SUID', args.show_name_instead_of_id),
             lambda proc: proc.suid,
         ),
         'fuid': (
-            lambda args: Display('FUID'),
+            lambda args: UidGidDisplay('FUID', args.show_name_instead_of_id),
             lambda proc: proc.fuid,
         ),
     }
@@ -357,6 +384,7 @@ def main():
     parser.add_argument('--vsz-unit', choices=size_unit_choices, default='MiB')
     parser.add_argument('--rss-unit', choices=size_unit_choices, default='MiB')
     parser.add_argument('-w', '--max-cmd-width', type=int, default=0)
+    parser.add_argument('-n', '--show-name-instead-of-id', action='store_true')
     args = parser.parse_args()
     run(args)
 
