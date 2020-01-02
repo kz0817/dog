@@ -2,6 +2,8 @@
 import argparse
 import re
 import os
+from abc import ABC, abstractmethod
+
 
 class Formatter(object):
 
@@ -84,7 +86,7 @@ class CommandDisplay(Display):
         return ''.join([' ' for i in range(depth*2)])
 
 
-class UidGidBaseDisplay(Display):
+class UidGidBaseDisplay(Display, ABC):
     name_map = None
 
     def __init__(self, title, use_name, data_file):
@@ -100,7 +102,7 @@ class UidGidBaseDisplay(Display):
                 id_num, name = self.get_name_map_pair(line)
                 self.name_map[id_num] = name
 
-    # abstract
+    @abstractmethod
     def get_name_map_pair(self, line):
         pass
 
