@@ -84,40 +84,6 @@ class CommandDisplay(Display):
         return ''.join([' ' for i in range(depth*2)])
 
 
-class UidGidDisplay(Display):
-
-    uid_name_map = None
-    gid_name_map = None
-
-    def __init__(self, title, use_name):
-        super(UidGidDisplay, self).__init__(title)
-        self.__use_name = use_name
-        if self.uid_name_map is None:
-            self.uid_name_map = self.__create_uid_name_map()
-
-    def __create_uid_name_map(self):
-        uid_name_map = {}
-        with open(f'/etc/passwd') as f:
-            for line in f:
-                name, passwd, uid, gid, others = line.split(':', maxsplit=4)
-                uid_name_map[uid] = name
-        return uid_name_map
-
-    def __create_gid_name_map(self):
-        gid_name_map = {}
-        with open(f'/etc/group') as f:
-            for line in f:
-                group, x, gid, others = line.split(':', maxsplit=3)
-                gid_name_map[gid] = group
-        return gid_name_map
-
-    def create(self, val):
-        if self.__use_name:
-            disp_val = self.uid_name_map.get(val, val)
-        else:
-            disp_val = val
-        return super(UidGidDisplay, self).create(disp_val)
-
 class UidGidBaseDisplay(Display):
     name_map = None
 
@@ -144,6 +110,16 @@ class UidGidBaseDisplay(Display):
         else:
             disp_val = val
         return super(UidGidBaseDisplay, self).create(disp_val)
+
+
+class UidDisplay(UidGidBaseDisplay):
+    def __init__(self, title, use_name):
+        super(UidDisplay, self).__init__(title, use_name, '/etc/passwd')
+
+    #override
+    def get_name_map_pair(self, line):
+        name, passwd, uid, gid, others = line.split(':', maxsplit=4)
+        return uid, name
 
 
 class GidDisplay(UidGidBaseDisplay):
@@ -309,7 +285,7 @@ class DisplayManager(object):
         ('rgid', 'RGID'), ('egid', 'EGID'),
         ('sgid', 'SGID'), ('fgid', 'FGID'),
     ]
-    for defs, klass in ((uid_defs, 'UidGidDisplay'), (gid_defs, 'GidDisplay')):
+    for defs, klass in ((uid_defs, 'UidDisplay'), (gid_defs, 'GidDisplay')):
         for name, label in defs:
             column_def[name] = (
                 eval(f'lambda args: {klass}("{label}", \
