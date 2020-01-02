@@ -254,23 +254,18 @@ class DisplayManager(object):
             lambda args: Display('PIDNS'),
             lambda proc: proc.get_ns('pid'),
         ),
-        'ruid': (
-            lambda args: UidGidDisplay('RUID', args.show_name_instead_of_id),
-            lambda proc: proc.ruid,
-        ),
-        'euid': (
-            lambda args: UidGidDisplay('EUID', args.show_name_instead_of_id),
-            lambda proc: proc.euid,
-        ),
-        'suid': (
-            lambda args: UidGidDisplay('SUID', args.show_name_instead_of_id),
-            lambda proc: proc.suid,
-        ),
-        'fuid': (
-            lambda args: UidGidDisplay('FUID', args.show_name_instead_of_id),
-            lambda proc: proc.fuid,
-        ),
     }
+    uid_gid_defs = [
+        ('ruid', 'RUID'), ('euid', 'EUID'),
+        ('suid', 'SUID'), ('fuid', 'FUID')
+    ]
+    for name, label in uid_gid_defs:
+        column_def[name] = (
+            eval(f'lambda args: UidGidDisplay("{label}", \
+                   args.show_name_instead_of_id)'),
+            eval(f'lambda proc: getattr(proc, "{name}")'),
+        )
+
 
     def __init__(self, args):
         self.display_list = []
