@@ -103,12 +103,57 @@ class UidGidDisplay(Display):
                 uid_name_map[uid] = name
         return uid_name_map
 
+    def __create_gid_name_map(self):
+        gid_name_map = {}
+        with open(f'/etc/group') as f:
+            for line in f:
+                group, x, gid, others = line.split(':', maxsplit=3)
+                gid_name_map[gid] = group
+        return gid_name_map
+
     def create(self, val):
         if self.__use_name:
             disp_val = self.uid_name_map.get(val, val)
         else:
             disp_val = val
         return super(UidGidDisplay, self).create(disp_val)
+
+class UidGidBaseDisplay(Display):
+    name_map = None
+
+    def __init__(self, title, use_name, data_file):
+        super(UidGidBaseDisplay, self).__init__(title)
+        self.__use_name = use_name
+        if self.name_map is None:
+            self.__create_name_map(data_file)
+
+    def __create_name_map(self, data_file):
+        self.name_map = {}
+        with open(data_file) as f:
+            for line in f:
+                id_num, name = self.get_name_map_pair(line)
+                self.name_map[id_num] = name
+
+    # abstract
+    def get_name_map_pair(self, line):
+        pass
+
+    def create(self, val):
+        if self.__use_name:
+            disp_val = self.name_map.get(val, val)
+        else:
+            disp_val = val
+        return super(UidGidBaseDisplay, self).create(disp_val)
+
+
+class GidDisplay(UidGidBaseDisplay):
+    def __init__(self, title, use_name):
+        super(GidDisplay, self).__init__(title, use_name, '/etc/group')
+
+    #override
+    def get_name_map_pair(self, line):
+        group, x, gid, others = line.split(':', maxsplit=3)
+        return gid, group
 
 
 class MemoryDisplay(Display):
@@ -160,6 +205,7 @@ class Process(object):
         status_map = self.__read_status(pid)
 
         self.ruid, self.euid, self.suid, self.fuid = status_map['Uid'].split()
+        self.rgid, self.egid, self.sgid, self.fgid = status_map['Gid'].split()
 
     def __read_stat(self, pid):
         with open(f'/proc/{pid}/stat') as f:
@@ -255,16 +301,21 @@ class DisplayManager(object):
             lambda proc: proc.get_ns('pid'),
         ),
     }
-    uid_gid_defs = [
+    uid_defs = [
         ('ruid', 'RUID'), ('euid', 'EUID'),
-        ('suid', 'SUID'), ('fuid', 'FUID')
+        ('suid', 'SUID'), ('fuid', 'FUID'),
     ]
-    for name, label in uid_gid_defs:
-        column_def[name] = (
-            eval(f'lambda args: UidGidDisplay("{label}", \
-                   args.show_name_instead_of_id)'),
-            eval(f'lambda proc: getattr(proc, "{name}")'),
-        )
+    gid_defs = [
+        ('rgid', 'RGID'), ('egid', 'EGID'),
+        ('sgid', 'SGID'), ('fgid', 'FGID'),
+    ]
+    for defs, klass in ((uid_defs, 'UidGidDisplay'), (gid_defs, 'GidDisplay')):
+        for name, label in defs:
+            column_def[name] = (
+                eval(f'lambda args: {klass}("{label}", \
+                       args.show_name_instead_of_id)'),
+                eval(f'lambda proc: getattr(proc, "{name}")'),
+            )
 
 
     def __init__(self, args):
