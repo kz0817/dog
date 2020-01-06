@@ -317,6 +317,9 @@ class ExclusionFinder(object):
         self.__append_list(args.exclusion_processes)
 
     def __append_list(self, target_list):
+        if target_list is None:
+            return
+
         for target in target_list:
             if isinstance(target, list):
                 self.__append_list(target)
