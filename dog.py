@@ -166,6 +166,7 @@ class Process(object):
 
         stat_arr = self.__read_stat(pid)
 
+        self.excluded = False
         self.generic_pid = int(generic_pid)
         self.pid = int(stat_arr[0])
         self.status = stat_arr[2]
@@ -308,11 +309,35 @@ class DisplayManager(object):
             yield disp.create(value_getter(proc))
 
 
+class ExclusionFinder(object):
+    def __init__(self, args):
+        self.pids = set()
+        self.names = set()
+        self.__append_list(args.exclusion_processes)
+
+    def __append_list(self, target_list):
+        for target in target_list:
+            if isinstance(target, list):
+                self.__append_list(target)
+            else:
+                self.__append(target)
+
+    def __append(self, target):
+        if target.isdecimal():
+            self.pids.add(int(target))
+        else:
+            self.names.add(target)
+
+    def match(self, proc):
+        return (proc.pid in self.pids) or (proc.name in self.names)
+
+
 class ProcessTree(object):
 
     def __init__(self, args):
         self.args = args
         self.display_manager = DisplayManager(args)
+        self.exclusion_finder = ExclusionFinder(args)
 
         self.proc_map = {}
         for proc in self.__list_processes(args):
@@ -321,6 +346,7 @@ class ProcessTree(object):
         self.root_proc_list = []
         self.__associate_parent_with_children()
         self.__set_depth_of_process()
+        self.__mark_excluded_processes()
 
         # The following method shall be called before show_tree() is called
         # to get the maximum width of each column.
@@ -346,19 +372,33 @@ class ProcessTree(object):
             else:
                 parent.children.append(proc)
 
-    def __set_depth_of_process(self):
+    def __iterate_process_tree(self):
+        proc_list = []
 
-        def set_children_depth(proc):
+        def iterate(proc):
+            if proc.excluded:
+                return
+            proc_list.append(proc)
             for child in proc.children:
-                child.depth = proc.depth + 1
-                set_children_depth(child)
+                iterate(child)
 
         for root_proc in self.root_proc_list:
-            root_proc.depth = 0
-            set_children_depth(root_proc)
+            iterate(root_proc)
+        return proc_list
+
+    def __mark_excluded_processes(self):
+        for proc in self.__iterate_process_tree():
+             proc.excluded = self.exclusion_finder.match(proc)
+
+    def __set_depth_of_process(self):
+        for proc in self.__iterate_process_tree():
+            if proc.parent is None:
+                proc.depth = 0
+            else:
+                proc.depth = proc.parent.depth + 1
 
     def __render_display_elements_for_all_process(self):
-        for pid, proc in self.proc_map.items():
+        for proc in self.__iterate_process_tree():
             proc.disp_elem_list = []
             for display, value_getter in self.display_manager.display_list:
                 v = value_getter(proc)
@@ -368,8 +408,6 @@ class ProcessTree(object):
         sep = formatter.get_separator()
         s = sep.join([disp_elem.render() for disp_elem in proc.disp_elem_list])
         print(s)
-        for child in proc.children:
-            self.__create_one_proc_line(child, formatter)
 
     def show_header(self, formatter):
         sep = formatter.get_separator()
@@ -380,8 +418,8 @@ class ProcessTree(object):
     def show_tree(self):
         formatter = Formatter()
         self.show_header(formatter)
-        for root_proc in self.root_proc_list:
-            self.__create_one_proc_line(root_proc, formatter)
+        for proc in self.__iterate_process_tree():
+            self.__create_one_proc_line(proc, formatter)
 
     def show_list(self):
         for proc in self.proc_map.values():
@@ -409,6 +447,7 @@ def main():
     parser.add_argument('--rss-unit', choices=size_unit_choices, default='MiB')
     parser.add_argument('-w', '--max-cmd-width', type=int, default=0)
     parser.add_argument('-n', '--show-name-instead-of-id', action='store_true')
+    parser.add_argument('-E', '--exclusion-processes', nargs='*', action='append')
     args = parser.parse_args()
     run(args)
 
