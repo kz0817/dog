@@ -313,6 +313,7 @@ class ExclusionFinder(object):
     def __init__(self, args):
         self.pids = set()
         self.names = set()
+        self.depth_limit = args.depth_limit
         self.__append_list(args.exclusion_processes)
 
     def __append_list(self, target_list):
@@ -329,7 +330,11 @@ class ExclusionFinder(object):
             self.names.add(target)
 
     def match(self, proc):
-        return (proc.pid in self.pids) or (proc.name in self.names)
+        if (proc.pid in self.pids) or (proc.name in self.names):
+            return True
+        if self.depth_limit is not None and proc.depth > self.depth_limit:
+            return True
+        return False
 
 
 class ProcessTree(object):
@@ -448,6 +453,7 @@ def main():
     parser.add_argument('-w', '--max-cmd-width', type=int, default=0)
     parser.add_argument('-n', '--show-name-instead-of-id', action='store_true')
     parser.add_argument('-E', '--exclusion-processes', nargs='*', action='append')
+    parser.add_argument('-D', '--depth-limit', type=int)
     args = parser.parse_args()
     run(args)
 
