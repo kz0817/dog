@@ -70,7 +70,7 @@ class CommandDisplay(Display):
         if len(cmd_line) > 0:
             s += cmd_line
         else:
-            s += f'{proc.name}'
+            s += proc.name
 
         trimmed = self.__trim_if_necessary(s)
         return super(CommandDisplay, self).create(trimmed)
@@ -149,7 +149,7 @@ class MemoryDisplay(Display):
 
     def create(self, val):
         if self.__scale == 1:
-            disp_val = f'{val}'
+            disp_val = str(val)
         else:
             disp_val = '%.1f' % (val / self.__scale)
         return super(MemoryDisplay, self).create(disp_val)
@@ -187,7 +187,7 @@ class Process(object):
         self.rgid, self.egid, self.sgid, self.fgid = status_map['Gid'].split()
 
     def __read_stat(self, pid):
-        with open(f'/proc/{pid}/stat') as f:
+        with open('/proc/%s/stat' % pid) as f:
             line = f.read()
             first, remaining = line.split('(', maxsplit=1)
             second, others = remaining.rsplit(')', maxsplit=1)
@@ -195,30 +195,30 @@ class Process(object):
 
     def __read_status(self, pid):
         kv_map = {}
-        with open(f'/proc/{pid}/status') as f:
+        with open('/proc/%s/status' % pid) as f:
             for line in f:
                 key, remaining = line.split(':', maxsplit=1)
                 kv_map[key] = remaining.strip()
         return kv_map
 
     def read_command_parameters(self):
-        with open(f'/proc/{self.pid}/cmdline') as f:
+        with open('/proc/%s/cmdline' % self.pid) as f:
             return f.read().split('\0')
 
     def __str__(self):
         s = ''
-        s += f'pid: {self.pid: >6}, '
-        s += f'ppid: {self.ppid: >6}, '
+        s += 'pid: %s, ' % str(self.pid).rjust(6)
+        s += 'ppid: %s, ' % str(self.ppid).rjust(6)
         vsz_m = self.vsz / 1024.0 / 1024
         rss_m = self.rss / 1024.0 / 1024
-        s += f'vsz-m: {vsz_m: >6.1f}, '
-        s += f'rss-k: {rss_m: >6.1f}, '
-        s += f'name: {self.name}, '
+        s += 'vsz-m: %s, ' % ('%.1f' % vsz_m).rjust(8)
+        s += 'rss-k: %s, ' % ('%.1f' % rss_m).rjust(8)
+        s += 'name: %s, ' % self.name
         return s
 
     def get_ns(self, ns_type):
         try:
-            ns = os.readlink(f'/proc/{self.pid}/ns/{ns_type}')
+            ns = os.readlink('/proc/%s/ns/%s' % (self.pid, ns_type))
             start = len(ns_type) + 2
             return ns[start:-1]
         except PermissionError:
@@ -291,9 +291,9 @@ class DisplayManager(object):
     for defs, klass in ((uid_defs, 'UidDisplay'), (gid_defs, 'GidDisplay')):
         for name, label in defs:
             column_def[name] = (
-                eval(f'lambda args: {klass}("{label}", \
-                       args.show_name_instead_of_id)'),
-                eval(f'lambda proc: getattr(proc, "{name}")'),
+                eval('lambda args: %s("%s", args.show_name_instead_of_id)' \
+                     % (klass, label)),
+                eval('lambda proc: getattr(proc, "%s")' % name),
             )
 
 
@@ -366,7 +366,7 @@ class ProcessTree(object):
         for dirname in filter(lambda x: re_proc_name.match(x), entries):
             pid = dirname
             if args.show_thread:
-                for tid in os.listdir(f'/proc/{pid}/task'):
+                for tid in os.listdir('/proc/%s/task' % pid):
                     yield Process(self.args, pid, tid)
             else:
                 yield Process(self.args, pid, pid)
