@@ -436,7 +436,13 @@ class ProcessTree(object):
             print(proc)
 
 
+def append_display_list_if_needed(args):
+    if args.append:
+        args.output[0:0] = args.append
+
 def run(args):
+    append_display_list_if_needed(args)
+
     proc_tree = ProcessTree(args)
     if args.list_processes:
         proc_tree.show_list()
@@ -453,6 +459,8 @@ def main():
     parser.add_argument('-t', '--show-thread', action='store_true')
     parser.add_argument('-s', '--sudo', action='store_true')
     parser.add_argument('-o', '--output', nargs='*', default=['pid', 'cmd'],
+                        choices=DisplayManager.column_def.keys())
+    parser.add_argument('-a', '--append', nargs='*', default=[],
                         choices=DisplayManager.column_def.keys())
     parser.add_argument('--vsz-unit', choices=size_unit_choices, default='MiB')
     parser.add_argument('--rss-unit', choices=size_unit_choices, default='MiB')
