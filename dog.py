@@ -2,6 +2,8 @@
 import argparse
 import re
 import os
+import sys
+import subprocess
 from abc import ABC, abstractmethod
 
 
@@ -449,6 +451,7 @@ def main():
     parser.add_argument('-l', '--list-processes', action='store_true')
     parser.add_argument('-c', '--command-line', action='store_true')
     parser.add_argument('-t', '--show-thread', action='store_true')
+    parser.add_argument('-s', '--sudo', action='store_true')
     parser.add_argument('-o', '--output', nargs='*', default=['pid', 'cmd'],
                         choices=DisplayManager.column_def.keys())
     parser.add_argument('--vsz-unit', choices=size_unit_choices, default='MiB')
@@ -457,8 +460,16 @@ def main():
     parser.add_argument('-n', '--show-name-instead-of-id', action='store_true')
     parser.add_argument('-E', '--exclusion-processes', nargs='*', action='append')
     parser.add_argument('-D', '--depth-limit', type=int)
+    parser.add_argument('--subprocess', action='store_true')
     args = parser.parse_args()
-    run(args)
+
+    if args.sudo and not args.subprocess:
+        cmd = ['sudo']
+        cmd.extend(sys.argv)
+        cmd.append('--subprocess')
+        subprocess.call(cmd)
+    else:
+        run(args)
 
 
 if __name__ == '__main__':
