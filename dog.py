@@ -56,6 +56,19 @@ class Display(object):
             return msg.rjust(self.get_width())
 
 
+class NumberDisplay(Display):
+    def __init__(self, title, fmt='%d', **kwargs):
+        super(NumberDisplay, self).__init__(title, kwargs)
+        self.fmt = fmt
+
+    def create(self, val):
+        if isinstance(val, int):
+            disp_val = '%08x' % val
+        else:
+            disp_val = val
+        return super(NumberDisplay, self).create(disp_val)
+
+
 class CommandDisplay(Display):
     def __init__(self, title, show_command_line, max_width):
         super(CommandDisplay, self).__init__(title, Display.NO_ALIGN)
@@ -222,7 +235,7 @@ class Process(object):
         try:
             ns = os.readlink('/proc/%s/ns/%s' % (self.pid, ns_type))
             start = len(ns_type) + 2
-            return ns[start:-1]
+            return int(ns[start:-1])
         except PermissionError:
             return '-'
 
@@ -274,11 +287,11 @@ class DisplayManager(object):
             lambda proc: proc.num_threads,
         ),
         'netns': (
-            lambda args: Display('NETNS'),
+            lambda args: NumberDisplay('NETNS', fmt='%08x'),
             lambda proc: proc.get_ns('net'),
         ),
         'pidns': (
-            lambda args: Display('PIDNS'),
+            lambda args: NumberDisplay('PIDNS', fmt='%08x'),
             lambda proc: proc.get_ns('pid'),
         ),
     }
