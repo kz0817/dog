@@ -179,6 +179,9 @@ class Process(object):
         # of multiple lightweight processes (i.e. threads).
         # 'pid' is a number which is sometimes called tid (thread ID).
 
+        def get_last(arr):
+            return arr.split()[-1]
+
         stat_arr = self.__read_stat(pid)
 
         self.excluded = False
@@ -200,6 +203,10 @@ class Process(object):
 
         self.ruid, self.euid, self.suid, self.fuid = status_map['Uid'].split()
         self.rgid, self.egid, self.sgid, self.fgid = status_map['Gid'].split()
+        self.nspid = get_last(status_map['NStgid'])
+        self.nstid = get_last(status_map['NSpid'])
+        self.nspgid = get_last(status_map['NSpgid'])
+        self.nssid = get_last(status_map['NSsid'])
 
     def __read_stat(self, pid):
         with open('/proc/%s/stat' % pid) as f:
@@ -293,6 +300,22 @@ class DisplayManager(object):
         'pidns': (
             lambda args: NumberDisplay('PIDNS', fmt='%08x'),
             lambda proc: proc.get_ns('pid'),
+        ),
+        'nspid': (
+            lambda args: NumberDisplay('NSPID'),
+            lambda proc: proc.nspid,
+        ),
+        'nstid': (
+            lambda args: NumberDisplay('NSTID'),
+            lambda proc: proc.nstid,
+        ),
+        'nspgid': (
+            lambda args: NumberDisplay('NSPGID'),
+            lambda proc: proc.nspgid,
+        ),
+        'nssid': (
+            lambda args: NumberDisplay('NSSID'),
+            lambda proc: proc.nssid,
         ),
     }
     uid_defs = [
