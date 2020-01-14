@@ -179,7 +179,10 @@ class Process(object):
         # of multiple lightweight processes (i.e. threads).
         # 'pid' is a number which is sometimes called tid (thread ID).
 
-        def get_last(arr):
+        def get_last(map_obj, key):
+            arr = map_obj.get(key)
+            if arr is None:
+                return '-'
             return arr.split()[-1]
 
         stat_arr = self.__read_stat(pid)
@@ -203,10 +206,10 @@ class Process(object):
 
         self.ruid, self.euid, self.suid, self.fuid = status_map['Uid'].split()
         self.rgid, self.egid, self.sgid, self.fgid = status_map['Gid'].split()
-        self.nspid = get_last(status_map['NStgid'])
-        self.nstid = get_last(status_map['NSpid'])
-        self.nspgid = get_last(status_map['NSpgid'])
-        self.nssid = get_last(status_map['NSsid'])
+        self.nspid = get_last(status_map, 'NStgid')
+        self.nstid = get_last(status_map, 'NSpid')
+        self.nspgid = get_last(status_map, 'NSpgid')
+        self.nssid = get_last(status_map, 'NSsid')
 
     def __read_stat(self, pid):
         with open('/proc/%s/stat' % pid) as f:
