@@ -6,7 +6,6 @@ import sys
 import subprocess
 from abc import ABC, abstractmethod
 
-
 class Formatter(object):
 
     def get_separator(self):
@@ -488,26 +487,74 @@ def run(args):
     proc_tree.show_tree()
 
 
+HELP_MSG_SUDO='''
+run as a root user. This option is required to show namespaces such as netns
+and pidns
+'''
+
+HELP_MSG_OUTPUT='''
+add output ITEMs: %s
+''' % ', '.join(DisplayManager.column_def.keys())
+
+HELP_MSG_APPEND='''
+add ITEMs before the default items: 'pid' and 'cmd'
+'''
+
+HELP_MSG_VSZ_UNIT='set the unit of VSZ (Virtual Memory Size) (Default: MiB)'
+HELP_MSG_RSS_UNIT='set the unit of RSS (Resident Size Set) (Default: MiB)'
+
+HELP_MSG_SHOW_NAME='''
+show a number instead of user or group name. This is effective for
+ruid, euid, suid, fuid, rgid, egid, sgid, and fgid
+'''
+
+HELP_MSG_EXCLUSION_PROCESS='''
+exclude a proecess and its descendant from the output.
+PROC is either a process ID or the process name
+'''
+
+HELP_MSG_DEPTH_LIMIT='''
+show processes whose depth are smaller than or equals to DEPTH
+(DEPTH starts from 0)
+'''
+
 def main():
 
     size_unit_choices = MemoryDisplay.unit_map.keys()
 
     parser = argparse.ArgumentParser(description='A tool to list processes.')
-    parser.add_argument('-l', '--list-processes', action='store_true')
-    parser.add_argument('-c', '--command-line', action='store_true')
-    parser.add_argument('-t', '--show-thread', action='store_true')
-    parser.add_argument('-s', '--sudo', action='store_true')
-    parser.add_argument('-o', '--output', nargs='*', default=['pid', 'cmd'],
-                        choices=DisplayManager.column_def.keys())
-    parser.add_argument('-a', '--append', nargs='*', default=[],
-                        choices=DisplayManager.column_def.keys())
-    parser.add_argument('--vsz-unit', choices=size_unit_choices, default='MiB')
-    parser.add_argument('--rss-unit', choices=size_unit_choices, default='MiB')
-    parser.add_argument('-w', '--max-cmd-width', type=int, default=0)
-    parser.add_argument('-n', '--show-name-instead-of-id', action='store_true')
-    parser.add_argument('-E', '--exclusion-processes', nargs='*', action='append')
-    parser.add_argument('-D', '--depth-limit', type=int)
-    parser.add_argument('--subprocess', action='store_true')
+    parser.add_argument('-l', '--list-processes', action='store_true',
+                        help=argparse.SUPPRESS)
+    parser.add_argument('-c', '--command-line', action='store_true',
+                        help='show a command line instead of the process name')
+    parser.add_argument('-t', '--show-thread', action='store_true',
+                        help='show threds')
+    parser.add_argument('-s', '--sudo', action='store_true',
+                        help=HELP_MSG_SUDO)
+    parser.add_argument('-o', '--output', nargs='+', default=['pid', 'cmd'],
+                        choices=DisplayManager.column_def.keys(),
+                        metavar='ITEM', help=HELP_MSG_OUTPUT)
+    parser.add_argument('-a', '--append', nargs='+', default=[],
+                        choices=DisplayManager.column_def.keys(),
+                        metavar='ITEM', help=HELP_MSG_APPEND)
+    parser.add_argument('--vsz-unit', choices=size_unit_choices, default='MiB',
+                        help=HELP_MSG_VSZ_UNIT)
+    parser.add_argument('--rss-unit', choices=size_unit_choices, default='MiB',
+                        help=HELP_MSG_RSS_UNIT)
+    parser.add_argument('-w', '--max-cmd-width', type=int, default=0,
+                        metavar='WIDTH',
+                        help='limit the line width for each process')
+    parser.add_argument('-n', '--show-name-instead-of-id', action='store_true',
+                        help=HELP_MSG_SHOW_NAME)
+    parser.add_argument('-E', '--exclusion-processes', nargs='+',
+                        action='append', metavar='PROC',
+                        help=HELP_MSG_EXCLUSION_PROCESS)
+    parser.add_argument('-D', '--depth-limit', type=int, metavar='DEPTH',
+                        help=HELP_MSG_DEPTH_LIMIT)
+
+    # This is for internal use
+    parser.add_argument('--subprocess', action='store_true',
+                        help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     if args.sudo and not args.subprocess:
