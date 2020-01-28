@@ -248,6 +248,25 @@ class Process(object):
         except PermissionError:
             return '-'
 
+    def ancestors(self):
+        arr = []
+        parent = self.parent
+        while parent is not None:
+            arr.append(parent)
+            parent = parent.parent
+        return arr
+
+    def descendants(self):
+
+        def collect_descendants(arr, proc):
+            for child in proc.children:
+                arr.append(child)
+                collect_descendants(arr, child)
+
+        arr = []
+        collect_descendants(arr, self)
+        return arr
+
 
 class DisplayManager(object):
     column_def = {
@@ -348,6 +367,37 @@ class DisplayManager(object):
         for disp, value_getter in self.display_list:
             yield disp.create(value_getter(proc))
 
+class ProcessFinder(object):
+    def __init__(self, args, proc_list):
+        self.pids = set()
+        self.names = set()
+        self.depth_limit = args.depth_limit
+        self.__append_list(proc_list)
+
+    def __append_list(self, target_list):
+        if target_list is None:
+            return
+
+        for target in target_list:
+            if isinstance(target, list):
+                self.__append_list(target)
+            else:
+                self.__append(target)
+
+    def __append(self, target):
+        if target.isdecimal():
+            self.pids.add(int(target))
+        else:
+            self.names.add(target)
+
+    def match(self, proc):
+        return (proc.pid in self.pids) or (proc.name in self.names)
+
+
+class SearchedProcessFinder(ProcessFinder):
+    def __init__(self, args):
+        super(SearchedProcessFinder, self).__init__(args, args.searched_processes)
+
 
 class ExclusionFinder(object):
     def __init__(self, args):
@@ -385,6 +435,7 @@ class ProcessTree(object):
     def __init__(self, args):
         self.args = args
         self.display_manager = DisplayManager(args)
+        self.searched_proc_finder = SearchedProcessFinder(args)
         self.exclusion_finder = ExclusionFinder(args)
 
         self.proc_map = {}
@@ -394,6 +445,9 @@ class ProcessTree(object):
         self.root_proc_list = []
         self.__associate_parent_with_children()
         self.__set_depth_of_process()
+
+        if len(args.searched_processes) > 0:
+            self.__pickup_seached_processes()
         self.__mark_excluded_processes()
 
         # The following method shall be called before show_tree() is called
@@ -420,11 +474,11 @@ class ProcessTree(object):
             else:
                 parent.children.append(proc)
 
-    def __iterate_process_tree(self):
+    def __iterate_process_tree(self, force_all=False):
         proc_list = []
 
         def iterate(proc):
-            if proc.excluded:
+            if proc.excluded and (not force_all):
                 return
             proc_list.append(proc)
             for child in proc.children:
@@ -433,6 +487,20 @@ class ProcessTree(object):
         for root_proc in self.root_proc_list:
             iterate(root_proc)
         return proc_list
+
+    def __pickup_seached_processes(self):
+        # Mark exclude for all processes once
+        for proc in self.__iterate_process_tree():
+            proc.excluded = True
+
+        for proc in self.__iterate_process_tree(force_all=True):
+            if not self.searched_proc_finder.match(proc):
+                continue
+            proc.excluded = False
+            for ancestor in proc.ancestors():
+                ancestor.excluded = False
+            for descendant in proc.descendants():
+                descendant.excluded = False
 
     def __mark_excluded_processes(self):
         for proc in self.__iterate_process_tree():
@@ -508,6 +576,10 @@ show a number instead of user or group name. This is effective for
 ruid, euid, suid, fuid, rgid, egid, sgid, and fgid
 '''
 
+HELP_MSG_SEARCHED_PROCESS='''
+only show the specified proesses and their ancestors and descendants
+'''
+
 HELP_MSG_EXCLUSION_PROCESS='''
 exclude a proecess and its descendant from the output.
 PROC is either a process ID or the process name
@@ -546,6 +618,9 @@ def main():
                         help='limit the line width for each process')
     parser.add_argument('-n', '--show-name-instead-of-id', action='store_true',
                         help=HELP_MSG_SHOW_NAME)
+    parser.add_argument('-S', '--searched-processes', nargs='+',
+                        action='append', metavar='PROC', default=[],
+                        help=HELP_MSG_SEARCHED_PROCESS)
     parser.add_argument('-E', '--exclusion-processes', nargs='+',
                         action='append', metavar='PROC',
                         help=HELP_MSG_EXCLUSION_PROCESS)
