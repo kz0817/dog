@@ -399,31 +399,13 @@ class SearchedProcessFinder(ProcessFinder):
         super(SearchedProcessFinder, self).__init__(args, args.searched_processes)
 
 
-class ExclusionFinder(object):
+class ExclusionFinder(ProcessFinder):
     def __init__(self, args):
-        self.pids = set()
-        self.names = set()
-        self.depth_limit = args.depth_limit
-        self.__append_list(args.exclusion_processes)
-
-    def __append_list(self, target_list):
-        if target_list is None:
-            return
-
-        for target in target_list:
-            if isinstance(target, list):
-                self.__append_list(target)
-            else:
-                self.__append(target)
-
-    def __append(self, target):
-        if target.isdecimal():
-            self.pids.add(int(target))
-        else:
-            self.names.add(target)
+        super(ExclusionFinder, self).__init__(args, args.exclusion_processes)
 
     def match(self, proc):
-        if (proc.pid in self.pids) or (proc.name in self.names):
+        matched = super(ExclusionFinder, self).match(proc)
+        if matched:
             return True
         if self.depth_limit is not None and proc.depth > self.depth_limit:
             return True
