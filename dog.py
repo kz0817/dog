@@ -394,9 +394,9 @@ class ProcessFinder(object):
         return (proc.pid in self.pids) or (proc.name in self.names)
 
 
-class SearchedProcessFinder(ProcessFinder):
+class SearchedProcFinder(ProcessFinder):
     def __init__(self, args):
-        super(SearchedProcessFinder, self).__init__(args, args.searched_processes)
+        super(SearchedProcFinder, self).__init__(args, args.searched_processes)
 
 
 class ExclusionFinder(ProcessFinder):
@@ -417,7 +417,7 @@ class ProcessTree(object):
     def __init__(self, args):
         self.args = args
         self.display_manager = DisplayManager(args)
-        self.searched_proc_finder = SearchedProcessFinder(args)
+        self.searched_proc_finder = SearchedProcFinder(args)
         self.exclusion_finder = ExclusionFinder(args)
 
         self.proc_map = {}
