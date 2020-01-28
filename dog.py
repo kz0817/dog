@@ -496,10 +496,19 @@ class ProcessTree(object):
         for proc in self.__iterate_process_tree(force_all=True):
             if not self.searched_proc_finder.match(proc):
                 continue
+
             proc.excluded = False
+
             for ancestor in proc.ancestors():
+                if not ancestor.excluded:
+                    # ancestors are already picked up
+                    break
                 ancestor.excluded = False
+
             for descendant in proc.descendants():
+                if not descendant.excluded:
+                    # descendants are already picked up
+                    break
                 descendant.excluded = False
 
     def __mark_excluded_processes(self):
