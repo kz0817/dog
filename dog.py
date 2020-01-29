@@ -249,23 +249,18 @@ class Process(object):
             return '-'
 
     def ancestors(self):
-        arr = []
         parent = self.parent
         while parent is not None:
-            arr.append(parent)
+            yield parent
             parent = parent.parent
-        return arr
 
     def descendants(self):
-
-        def collect_descendants(arr, proc):
-            for child in proc.children:
-                arr.append(child)
-                collect_descendants(arr, child)
-
-        arr = []
-        collect_descendants(arr, self)
-        return arr
+        proc_stack = list(reversed(self.children))
+        while len(proc_stack) > 0:
+            proc = proc_stack.pop(-1)
+            yield proc
+            if len(proc.children) > 0:
+                proc_stack += reversed(proc.children)
 
 
 class DisplayManager(object):
@@ -457,18 +452,14 @@ class ProcessTree(object):
                 parent.children.append(proc)
 
     def __iterate_process_tree(self, force_all=False):
-        proc_list = []
-
-        def iterate(proc):
-            if proc.excluded and (not force_all):
-                return
-            proc_list.append(proc)
-            for child in proc.children:
-                iterate(child)
-
-        for root_proc in self.root_proc_list:
-            iterate(root_proc)
-        return proc_list
+            proc_stack = list(reversed(self.root_proc_list))
+            while len(proc_stack) > 0:
+                proc = proc_stack.pop(-1)
+                if proc.excluded and (not force_all):
+                    continue
+                yield proc
+                if len(proc.children) > 0:
+                    proc_stack += reversed(proc.children)
 
     def __pickup_seached_processes(self):
 
