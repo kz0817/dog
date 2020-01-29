@@ -452,14 +452,14 @@ class ProcessTree(object):
                 parent.children.append(proc)
 
     def __iterate_process_tree(self, force_all=False):
-            proc_stack = list(reversed(self.root_proc_list))
-            while len(proc_stack) > 0:
-                proc = proc_stack.pop(-1)
-                if proc.excluded and (not force_all):
-                    continue
-                yield proc
-                if len(proc.children) > 0:
-                    proc_stack += reversed(proc.children)
+        proc_stack = list(reversed(self.root_proc_list))
+        while len(proc_stack) > 0:
+            proc = proc_stack.pop(-1)
+            if proc.excluded and (not force_all):
+                continue
+            yield proc
+            if len(proc.children) > 0:
+                proc_stack += reversed(proc.children)
 
     def __pickup_seached_processes(self):
 
