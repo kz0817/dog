@@ -366,7 +366,6 @@ class ProcessFinder(object):
     def __init__(self, args, proc_list):
         self.pids = set()
         self.names = set()
-        self.depth_limit = args.depth_limit
         self.__append_list(proc_list)
 
     def __append_list(self, target_list):
@@ -389,31 +388,13 @@ class ProcessFinder(object):
         return (proc.pid in self.pids) or (proc.name in self.names)
 
 
-class SearchedProcFinder(ProcessFinder):
-    def __init__(self, args):
-        super(SearchedProcFinder, self).__init__(args, args.searched_processes)
-
-
-class ExclusionFinder(ProcessFinder):
-    def __init__(self, args):
-        super(ExclusionFinder, self).__init__(args, args.exclusion_processes)
-
-    def match(self, proc):
-        matched = super(ExclusionFinder, self).match(proc)
-        if matched:
-            return True
-        if self.depth_limit is not None and proc.depth > self.depth_limit:
-            return True
-        return False
-
-
 class ProcessTree(object):
 
     def __init__(self, args):
         self.args = args
         self.display_manager = DisplayManager(args)
-        self.searched_proc_finder = SearchedProcFinder(args)
-        self.exclusion_finder = ExclusionFinder(args)
+        self.searched_proc_finder = ProcessFinder(args, args.searched_processes)
+        self.exclusion_finder = ProcessFinder(args, args.exclusion_processes)
 
         self.proc_map = {}
         for proc in self.__list_processes(args):
@@ -451,20 +432,28 @@ class ProcessTree(object):
             else:
                 parent.children.append(proc)
 
-    def __iterate_process_tree(self, force_all=False):
+    def __iterate_process_tree(self, force_all=False, with_excluded=False):
+
+        def is_depth_limit(proc):
+            depth_limit = self.args.depth_limit
+            return (depth_limit is not None) and (proc.depth == depth_limit)
+
+        def should_skip(proc):
+            return (not with_excluded) and proc.excluded
+
         proc_stack = list(reversed(self.root_proc_list))
         while len(proc_stack) > 0:
             proc = proc_stack.pop(-1)
-            if proc.excluded and (not force_all):
+            if not force_all and should_skip(proc):
                 continue
             yield proc
-            if len(proc.children) > 0:
+            if len(proc.children) > 0 and (not is_depth_limit(proc)):
                 proc_stack += reversed(proc.children)
 
     def __pickup_seached_processes(self):
 
         def exclude_all_processes():
-            for proc in self.__iterate_process_tree(force_all=True):
+            for proc in self.__iterate_process_tree():
                 proc.excluded = True
 
         def pickup_branch(proc_list):
@@ -476,7 +465,7 @@ class ProcessTree(object):
                 proc.excluded = False
 
         exclude_all_processes()
-        for proc in self.__iterate_process_tree(force_all=True):
+        for proc in self.__iterate_process_tree(with_excluded=True):
             if not self.searched_proc_finder.match(proc):
                 continue
             if not proc.excluded:
@@ -492,7 +481,7 @@ class ProcessTree(object):
              proc.excluded = self.exclusion_finder.match(proc)
 
     def __set_depth_of_process(self):
-        for proc in self.__iterate_process_tree():
+        for proc in self.__iterate_process_tree(force_all=True):
             if proc.parent is None:
                 proc.depth = 0
             else:
