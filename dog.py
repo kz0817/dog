@@ -417,11 +417,17 @@ class ProcessTree(object):
         entries = os.listdir('/proc')
         for dirname in filter(lambda x: re_proc_name.match(x), entries):
             pid = dirname
-            if args.show_thread:
-                for tid in os.listdir('/proc/%s/task' % pid):
-                    yield Process(self.args, pid, tid)
+            if args.show_thread :
+                tid_list = [os.listdir('/proc/%s/task' % pid)]
             else:
-                yield Process(self.args, pid, pid)
+                tid_list = [pid]
+            for tid in tid_list:
+                try:
+                    proc = Process(self.args, pid, tid)
+                    yield proc
+                except:
+                    pass
+
 
     def __associate_parent_with_children(self):
         for pid, proc in self.proc_map.items():
